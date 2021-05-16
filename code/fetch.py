@@ -1,4 +1,4 @@
-import json, hexbytes, asyncio, pdb
+import json
 from dotenv import load_dotenv
 load_dotenv()
 # from requests_cache import install_cache
@@ -13,7 +13,7 @@ from utils import (
     )
 
 address = '0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB'
-CryptoPunksABI = './cryptopunks/compiled/CryptoPunksMarket.abi'
+CryptoPunksABI = '../cryptopunks/compiled/CryptoPunksMarket.abi'
 contract_creation_block = 3914495
 
 def main():
@@ -25,20 +25,21 @@ def main():
         buy_event = contract.events.PunkBought
         assign_event = contract.events.Assign
 
-        transfer_logs = getPunksLogs(transfer_event, 150)
-        buy_logs = getPunksLogs(buy_event, 150)
-        assign_logs = getPunksLogs(buy_event, 150)
+        # transfer_logs = getPunksLogs(transfer_event, 150)
+        # buy_logs = getPunksLogs(buy_event, 150)
+        assign_logs = getPunksLogs(assign_event, 2000)
 
-        savePunksLogs(transfer_logs, 'transfers.txt')
-        savePunksLogs(buy_logs, 'buys.txt')
+        # savePunksLogs(transfer_logs, '../data/transfers.txt')
+        # savePunksLogs(buy_logs, '../data/buys.txt')
+        savePunksLogs(assign_logs, '../data/assigns.txt')
+
 
 def getPunksLogs(filterObject, intervalsCount):
     currentBlock = w3.eth.blockNumber
     queryIntervals = intervals(contract_creation_block, currentBlock, intervalsCount)
     # queryIntervals = [[12370609, 12419122]] #for testing purposes
-    pdb.set_trace()
 
-    raw_payload = []
+    payload = []
     for count, [start, end] in enumerate(queryIntervals):
         s = hex(round(start))
         e = hex(round(end))
@@ -48,8 +49,7 @@ def getPunksLogs(filterObject, intervalsCount):
         payload.append(entries)
 
     # payload is a list of lists of dicts
-    print(raw_payload)
-    pdb.set_trace()
+    print(payload)
     return payload
 
 def savePunksLogs(logs, filename):
@@ -59,7 +59,6 @@ def savePunksLogs(logs, filename):
         json.dump(parsedResults, f)
         print(parsedResults)
         print(len(parsedResults))
-        pdb.set_trace()
 
 
 
