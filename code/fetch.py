@@ -1,13 +1,10 @@
-import json
+import json, math, pdb
 from dotenv import load_dotenv
 load_dotenv()
-# from requests_cache import install_cache
-# install_cache('cryptopunks_cache')
-
 from web3.auto.infura import w3
 
 from utils import (
-    intervals, 
+    non_equal_intervals,
     flatten,
     parseResultList
     )
@@ -25,20 +22,27 @@ def main():
         buy_event = contract.events.PunkBought
         assign_event = contract.events.Assign
 
+        exponent = lambda x: (math.e ** (x/100)) -1
+
         # transfer_logs = getPunksLogs(transfer_event, 150)
         # buy_logs = getPunksLogs(buy_event, 150)
-        assign_logs = getPunksLogs(assign_event, 2000)
+        assign_logs = getPunksLogs(assign_event, 700, exponent)
 
         # savePunksLogs(transfer_logs, '../data/transfers.txt')
         # savePunksLogs(buy_logs, '../data/buys.txt')
         savePunksLogs(assign_logs, '../data/assigns.txt')
 
 
-def getPunksLogs(filterObject, intervalsCount):
+def getPunksLogs(filterObject, intervalsCount, transformFunction= lambda x: x):
     currentBlock = w3.eth.blockNumber
-    queryIntervals = intervals(contract_creation_block, currentBlock, intervalsCount)
+    queryIntervals = non_equal_intervals(
+                        contract_creation_block, 
+                        currentBlock, 
+                        intervalsCount,
+                        transformFunction
+                        )
     # queryIntervals = [[12370609, 12419122]] #for testing purposes
-
+    pdb.set_trace()
     payload = []
     for count, [start, end] in enumerate(queryIntervals):
         s = hex(round(start))
