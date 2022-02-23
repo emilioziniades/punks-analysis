@@ -16,20 +16,20 @@ contract_creation_block = 3914495
 def main():
     with open(CryptoPunksABI) as f:
         abi = json.load(f)
-        contract = w3.eth.contract(address=address, abi=abi)
+        contract = w3.eth.contract(address=CRYPTOPUNKS_SMART_CONTRACT_ADDRESS, abi=abi)
 
         transfer_event = contract.events.PunkTransfer
         buy_event = contract.events.PunkBought
         assign_event = contract.events.Assign
 
-        exponent = lambda x: (math.e ** (x/100)) -1
+        exponent_function = lambda x: (math.e ** (x/100)) -1
 
-        # transfer_logs = getPunksLogs(transfer_event, 150)
-        # buy_logs = getPunksLogs(buy_event, 150)
-        assign_logs = getPunksLogs(assign_event, 700, exponent)
+        transfer_logs = getPunksLogs(transfer_event, 150)
+        buy_logs = getPunksLogs(buy_event, 150)
+        assign_logs = getPunksLogs(assign_event, 700, exponent_function)
 
-        # savePunksLogs(transfer_logs, '../data/transfers.txt')
-        # savePunksLogs(buy_logs, '../data/buys.txt')
+        savePunksLogs(transfer_logs, '../data/transfers.txt')
+        savePunksLogs(buy_logs, '../data/buys.txt')
         savePunksLogs(assign_logs, '../data/assigns.txt')
 
 
@@ -52,7 +52,6 @@ def getPunksLogs(filterObject, intervalsCount, transformFunction= lambda x: x):
         entries = currentFilter.get_all_entries()
         payload.append(entries)
 
-    # payload is a list of lists of dicts
     print(payload)
     return payload
 

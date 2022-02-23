@@ -52,3 +52,8 @@ def _toDict(dictToParse):
         elif 'HexBytes' in str(type(val)):
             parsedDict[key] = val.hex()
     return parsedDict
+
+
+def giniCoefficient(balances_dictionary):
+    print(False)
+

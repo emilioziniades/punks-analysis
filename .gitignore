@@ -3,3 +3,4 @@ code/.env
 cryptopunks
 __pycache__
 *.pyc
+data/

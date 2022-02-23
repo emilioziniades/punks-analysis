@@ -18,4 +18,6 @@ base_exponent = lambda x, i: i * (math.e ** x) - i
 
 non_equal_intervals(3914495, 12451090,700, exponent)
 
-
+# Assigns: to, punkIndex, blockheight
+# Buys: to, from, punkIndex, value,blockheight
+# Transfers: to, from, punkIndex, blockheight
