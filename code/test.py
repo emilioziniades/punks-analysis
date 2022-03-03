@@ -13,11 +13,10 @@ base_exponent = lambda x, i: i * (math.e ** x) - i
 # exponent = lambda x,e: base_exponent(x, e)
 
 # non_equal_intervals(0,10,3, normal)
+# non_equal_intervals(0,10,3, exponent)
 
 # non_equal_intervals(10,500,15, normal)
+# non_equal_intervals(10,500,15, exponent)
+non_equal_intervals(10,500,15, hyperbola)
 
-non_equal_intervals(3914495, 12451090,700, exponent)
-
-# Assigns: to, punkIndex, blockheight
-# Buys: to, from, punkIndex, value,blockheight
-# Transfers: to, from, punkIndex, blockheight
+# non_equal_intervals(3914495, 12451090,700, exponent)

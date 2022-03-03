@@ -12,13 +12,13 @@ def non_equal_intervals(start, end, parts, transform_formula):
     transformed_array = list(map(transform_formula,range(parts + 1)))
     squash_factor = duration / transformed_array[-1]
     squash = lambda x: x * squash_factor
-    squashed = list(map(squash, transformed_array))
+    squashed_array = list(map(squash, transformed_array))
 
     intervals = []
-    for i, h in enumerate(squashed):
+    for i, _ in enumerate(squashed_array):
         try:
-            s = squashed[i] + start
-            e = squashed[i+1] + start
+            s = squashed_array[i] + start
+            e = squashed_array[i+1] + start
             intervals.append([round(s), round(e)])
         except IndexError:
             continue
@@ -37,23 +37,22 @@ def flatten(list_of_list_of_dicts):
             list_of_dicts.append(dictionary)
     return list_of_dicts
 
-def parseResultList(listOfDicts):
-    return [_toDict(i) for i in listOfDicts]
+def parse_result_list(list_of_dicts):
+    return [_to_dict(i) for i in list_of_dicts]
 
-
-def _toDict(dictToParse):
+def _to_dict(dict_to_parse):
     # convert any 'AttributeDict' type found to 'dict'
-    parsedDict = dict(dictToParse)
-    for key, val in parsedDict.items():
+    parsed_dict = dict(dict_to_parse)
+    for key, val in parsed_dict.items():
         # check for nested dict structures to iterate through
         if  'dict' in str(type(val)).lower():
-            parsedDict[key] = _toDict(val)
+            parsed_dict[key] = _to_dict(val)
         # convert 'HexBytes' type to 'str'
         elif 'HexBytes' in str(type(val)):
-            parsedDict[key] = val.hex()
-    return parsedDict
+            parsed_dict[key] = val.hex()
+    return parsed_dict
 
 
-def giniCoefficient(balances_dictionary):
+def gini_coefficient(balances_dictionary):
     print(False)
 

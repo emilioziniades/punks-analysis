@@ -1,71 +1,68 @@
-import json, math, pdb
+import json, math
+
+import requests_cache
 from dotenv import load_dotenv
+
 load_dotenv()
 from web3.auto.infura import w3
 
-from utils import (
-    non_equal_intervals,
-    flatten,
-    parseResultList
-    )
+from utils import non_equal_intervals, flatten, parse_result_list
+from config import CRYPTOPUNKS_ADDRESS, CRYPTOPUNKS_ABI, CONTRACT_CREATION_BLOCK
 
-address = '0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB'
-CryptoPunksABI = '../cryptopunks/compiled/CryptoPunksMarket.abi'
-contract_creation_block = 3914495
 
 def main():
-    with open(CryptoPunksABI) as f:
+    requests_cache.install_cache("punks")
+    with open(CRYPTOPUNKS_ABI) as f:
         abi = json.load(f)
-        contract = w3.eth.contract(address=CRYPTOPUNKS_SMART_CONTRACT_ADDRESS, abi=abi)
+        contract = w3.eth.contract(address=CRYPTOPUNKS_ADDRESS, abi=abi)
 
-        transfer_event = contract.events.PunkTransfer
-        buy_event = contract.events.PunkBought
-        assign_event = contract.events.Assign
+        exponent_function = lambda x: (math.e ** (x / 100)) - 1
 
-        exponent_function = lambda x: (math.e ** (x/100)) -1
+        # Events contain the following relevant information:
+        # 	Transfers: to, from, punkIndex, blockheight
+        # 	Assigns: to, punkIndex, blockheight
+        # 	Buys: to, from, punkIndex, value,blockheight
 
-        transfer_logs = getPunksLogs(transfer_event, 150)
-        buy_logs = getPunksLogs(buy_event, 150)
-        assign_logs = getPunksLogs(assign_event, 700, exponent_function)
+        transfer_logs = get_punks_logs(contract.events.PunkTransfer, 160)
+        buy_logs = get_punks_logs(contract.events.PunkBought, 160)
 
-        savePunksLogs(transfer_logs, '../data/transfers.txt')
-        savePunksLogs(buy_logs, '../data/buys.txt')
-        savePunksLogs(assign_logs, '../data/assigns.txt')
+        # exponent_function ensures that intervals are narrower at start of contract life,
+        # when there were many more assigns ocurring
+        assign_logs = get_punks_logs(contract.events.Assign, 700, exponent_function)
+
+        save_punks_logs(transfer_logs, "../data/transfers.json")
+        save_punks_logs(buy_logs, "../data/buys.json")
+        save_punks_logs(assign_logs, "../data/assigns.json")
 
 
-def getPunksLogs(filterObject, intervalsCount, transformFunction= lambda x: x):
-    currentBlock = w3.eth.blockNumber
-    queryIntervals = non_equal_intervals(
-                        contract_creation_block, 
-                        currentBlock, 
-                        intervalsCount,
-                        transformFunction
-                        )
-    # queryIntervals = [[12370609, 12419122]] #for testing purposes
-    pdb.set_trace()
+def get_punks_logs(filter_object, num_intervals, transform_function=lambda x: x):
+    current_block = w3.eth.blockNumber
+    query_intervals = non_equal_intervals(
+        CONTRACT_CREATION_BLOCK, current_block, num_intervals, transform_function
+    )
+    # query_intervals = [[12370609, 12419122]]  # for testing purposes
     payload = []
-    for count, [start, end] in enumerate(queryIntervals):
+    for count, [start, end] in enumerate(query_intervals):
         s = hex(round(start))
         e = hex(round(end))
-        print(count, s, e)
-        currentFilter = filterObject.createFilter(fromBlock=s, toBlock=e)
-        entries = currentFilter.get_all_entries()
+        print(count, start, end)
+        current_filter = filter_object.createFilter(fromBlock=s, toBlock=e)
+        entries = current_filter.get_all_entries()
         payload.append(entries)
 
-    print(payload)
+    # pprint(payload)
+    # breakpoint()
     return payload
 
-def savePunksLogs(logs, filename):
-    flattenedResults = flatten(logs)
-    parsedResults = parseResultList(flattenedResults)
-    with open(filename, 'w') as f:
-        json.dump(parsedResults, f)
-        print(parsedResults)
-        print(len(parsedResults))
+
+def save_punks_logs(logs, filename):
+    flattened_results = flatten(logs)
+    parsed_results = parse_result_list(flattened_results)
+    with open(filename, "w") as f:
+        json.dump(parsed_results, f)
+        print(parsed_results)
+        print(len(parsed_results))
 
 
-
-if __name__ == 'main':
+if __name__ == "__main__":
     main()
-
-
