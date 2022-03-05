@@ -1,67 +1,65 @@
-import json, math
+import json
 
-import requests_cache
+from typing import Any, Callable
+
 from dotenv import load_dotenv
 
 load_dotenv()
 from web3.auto.infura import w3
 
-from utils import non_equal_intervals, flatten, parse_result_list
+from utils import non_equal_intervals, to_dict, project_dir, exponential, linear
 from config import CRYPTOPUNKS_ADDRESS, CRYPTOPUNKS_ABI, CONTRACT_CREATION_BLOCK
 
 
 def main():
-    requests_cache.install_cache("punks")
     with open(CRYPTOPUNKS_ABI) as f:
         abi = json.load(f)
         contract = w3.eth.contract(address=CRYPTOPUNKS_ADDRESS, abi=abi)
 
-        exponent_function = lambda x: (math.e ** (x / 100)) - 1
+        to_fetch = [
+            # (contract.events.Transfer, "transfers", 250, linear),
+            # (contract.events.PunkTransfer, "punk_transfers", 250, linear),
+            (contract.events.PunkBidEntered, "bids", 600, linear),
+            # (contract.events.PunkBought, "buys", 250, linear),
+            # exponential transform ensures that intervals are narrower at start of contract life, when all assigns occur
+            # (contract.events.Assign, "assigns", 500, exponential),
+        ]
 
-        # Events contain the following relevant information:
-        # 	Transfers: to, from, punkIndex, blockheight
-        # 	Assigns: to, punkIndex, blockheight
-        # 	Buys: to, from, punkIndex, value,blockheight
-
-        transfer_logs = get_punks_logs(contract.events.PunkTransfer, 160)
-        buy_logs = get_punks_logs(contract.events.PunkBought, 160)
-
-        # exponent_function ensures that intervals are narrower at start of contract life,
-        # when there were many more assigns ocurring
-        assign_logs = get_punks_logs(contract.events.Assign, 700, exponent_function)
-
-        save_punks_logs(transfer_logs, "../data/transfers.json")
-        save_punks_logs(buy_logs, "../data/buys.json")
-        save_punks_logs(assign_logs, "../data/assigns.json")
+        for (event, name, n_intervals, transformation) in to_fetch:
+            get_and_save_punks_logs(event, n_intervals, name, transformation)
 
 
-def get_punks_logs(filter_object, num_intervals, transform_function=lambda x: x):
+def get_and_save_punks_logs(
+    event: Any,
+    n_intervals: int,
+    name: str,
+    transform_function: Callable[[float], float] = linear,
+) -> None:
+    print(name)
+
+    # RPC call: eth_blockNumber
     current_block = w3.eth.blockNumber
+
+    # generate intervals of (possibly non-equal) size
     query_intervals = non_equal_intervals(
-        CONTRACT_CREATION_BLOCK, current_block, num_intervals, transform_function
+        CONTRACT_CREATION_BLOCK, current_block, n_intervals, transform_function
     )
-    # query_intervals = [[12370609, 12419122]]  # for testing purposes
+
+    # Fetch event data from smart contract via filters
+    # RPC calls: eth_newFilter and eth_getFilterLogs
     payload = []
     for count, [start, end] in enumerate(query_intervals):
         s = hex(round(start))
         e = hex(round(end))
         print(count, start, end)
-        current_filter = filter_object.createFilter(fromBlock=s, toBlock=e)
-        entries = current_filter.get_all_entries()
-        payload.append(entries)
+        entries = event.createFilter(fromBlock=s, toBlock=e).get_all_entries()
+        payload += entries
 
-    # pprint(payload)
-    # breakpoint()
-    return payload
-
-
-def save_punks_logs(logs, filename):
-    flattened_results = flatten(logs)
-    parsed_results = parse_result_list(flattened_results)
-    with open(filename, "w") as f:
-        json.dump(parsed_results, f)
-        print(parsed_results)
-        print(len(parsed_results))
+    # convert AttributeDict into normal dict and save events to json
+    dict_payload = [to_dict(i) for i in payload]
+    with open(f"{project_dir()}/data/{name}.json", "w") as f:
+        json.dump(dict_payload, f)
+        print(len(dict_payload))
 
 
 if __name__ == "__main__":

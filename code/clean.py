@@ -1,77 +1,100 @@
-import json, pdb
+import json
 from collections import defaultdict
 from pprint import pprint
+from typing import Dict, List, Tuple
+from operator import itemgetter
 
-from config import CRYPTOPUNKS_ADDRESS, CRYPTOPUNKS_ABI, CONTRACT_CREATION_BLOCK
+from web3.types import EventData
+
+from config import CRYPTOPUNKS_ADDRESS
+from utils import gini
 
 
 def main():
     data_files = [
         "../data/assigns.json",
-        "../data/transfers.json",  # neg numbers
+        "../data/transfers.json",
+        "../data/punk_transfers.json",
         "../data/buys.json",
+        # "../data/bids.json",
     ]
 
-    newfiles = parse_logs(data_files)
-    final_balance = reconcile_logs(newfiles)
-    balances = sorted([v for k, v in final_balance.items()])
-    breakpoint()
+    events = unify_events(data_files)
+    balances = determine_balances(events)
+    balances_list = sorted([v for v in balances.values()])
+    pprint(balances)
+    print(balances_list)
+    print(sum([i for i in balances_list if i < 0]))
+    print(gini([i for i in balances_list if i != 0]))
 
 
-def reconcile_logs(balance_data_files):
+def unify_events(event_files: list[str]) -> list[EventData]:
+    all_events: list[EventData] = []
 
-    most_recent_balances = {}
-    most_recent_balances[CRYPTOPUNKS_ADDRESS] = 10000
+    # combine assigns, transfers and buys into single list of events
+    for filename in event_files:
+        with open(filename, "r") as file:
+            data = json.load(file)
+            # pprint(data[0])
+            all_events += data
 
-    for balance_data in balance_data_files:
-        with open(balance_data, "r") as f:
-            balances = json.load(f)
-            for (account, balance) in balances.items():
+    # cleaning
+    for i, event in enumerate(all_events):
+        # change "fromAddress" to "from" for PunkBought events
+        all_events[i]["args"] = {
+            "from" if k == "fromAddress" else k: v for k, v in event["args"].items()
+        }
+        # change "toAddress" to "to" for PunkBought events
+        all_events[i]["args"] = {
+            "to" if k == "toAddress" else k: v for k, v in event["args"].items()
+        }
 
-                if most_recent_balances.get(account):
-                    most_recent_balances[account] += balance
-                else:
-                    most_recent_balances.update({account: balance})
+        # add "from" = CRYPTOPUNKS_ADDRESS for Assign events
+        if "from" not in event["args"]:
+            all_events[i]["args"]["from"] = CRYPTOPUNKS_ADDRESS
 
-    return most_recent_balances
-
-
-def parse_logs(data_files):
-    filenames = []
-    for data in data_files:
-        with open(data, "r") as f:
-            logs = json.load(f)
-            clean_logs = _count_punks_by_owner(logs)
-            current_filename = data[:-4] + "_balances.json"
-            filenames.append(current_filename)
-            with open(current_filename, "w") as g:
-                json.dump(clean_logs, g)
-                # print(clean_logs)
-
-    return filenames
+    return sorted(all_events, key=itemgetter("blockNumber", "logIndex"))
 
 
-def _count_punks_by_owner(logs):
+def determine_balances(events: list[EventData]) -> Dict[str, int]:
+    balances: Dict[str, int] = defaultdict(lambda: 0)
+    # bids: Dict[int, List[Tuple[int, str]]] = {}
 
-    balances = defaultdict(lambda: 0)
-    # balances[CRYPTOPUNKS_ADDRESS] = 10000
-    print(len(logs))
-    pprint(logs[544:546])
-    for log in logs:
+    balances[CRYPTOPUNKS_ADDRESS] = 10000
+    for i, event in enumerate(events):
+        receiver = event["args"]["to"]
+        sender = event["args"]["from"]
+        block_number = event["blockNumber"]
+        punk_index = event["args"]["punkIndex"] if "punkIndex" in event["args"] else -1
+        value = event["args"]["value"] if "value" in event["args"] else -1
+        event_type = event["event"]
 
-        block_number = log["blockNumber"]
-        punk_receiver = log.get("args").get("to") or log.get("args").get("toAddress")
-        punk_sender = (
-            log.get("args").get("from")
-            or log.get("args").get("fromAddress")
-            or CRYPTOPUNKS_ADDRESS
-        )
-        punk_index = log["args"]["punkIndex"]
-        value = log.get("args").get("value") or "Not given"
-        event_type = log["event"]
+        # if event_type != "Assign":
+        #     break
 
-        balances[punk_sender] -= 1
-        balances[punk_receiver] += 1
+        # if event_type == "PunkBidEntered":
+        #     bids[punk_index].append((value, sender))
+
+        # we only need Transfer events to determine to address of PunkBought event
+        if event_type == "Transfer":
+            continue
+
+        if (
+            receiver == "0x0000000000000000000000000000000000000000"
+            and value == 0
+            and event_type == "PunkBought"
+        ):
+            # since events are chronological, previous event will always be the Transfer
+            # event corresponding to the PunkBought event
+            transfer_event = events[i - 1]
+            assert transfer_event["event"] == "Transfer"
+            assert block_number == transfer_event["blockNumber"]
+            assert sender == transfer_event["args"]["from"]
+            receiver = transfer_event["args"]["to"]
+
+        assert balances[sender] > 0
+        balances[sender] -= 1
+        balances[receiver] += 1
 
     return balances
 
