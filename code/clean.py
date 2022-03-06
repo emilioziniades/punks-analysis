@@ -4,6 +4,7 @@ from pprint import pprint
 from typing import Dict, List, Tuple
 from operator import itemgetter
 
+from web3 import Web3
 from web3.types import EventData
 
 from config import CRYPTOPUNKS_ADDRESS
@@ -16,19 +17,16 @@ def main():
         "../data/transfers.json",
         "../data/punk_transfers.json",
         "../data/buys.json",
-        # "../data/bids.json",
+        "../data/bids_entered.json",
+        "../data/bids_withdrawn.json",
     ]
 
-    events = unify_events(data_files)
-    balances = determine_balances(events)
-    balances_list = sorted([v for v in balances.values()])
-    pprint(balances)
-    print(balances_list)
-    print(sum([i for i in balances_list if i < 0]))
-    print(gini([i for i in balances_list if i != 0]))
+    events = merge_events(data_files)
+    print(gini(determine_balances(events, True)))
+    print(gini(determine_balances(events, False)))
 
 
-def unify_events(event_files: list[str]) -> list[EventData]:
+def merge_events(event_files: list[str]) -> list[EventData]:
     all_events: list[EventData] = []
 
     # combine assigns, transfers and buys into single list of events
@@ -50,40 +48,46 @@ def unify_events(event_files: list[str]) -> list[EventData]:
         }
 
         # add "from" = CRYPTOPUNKS_ADDRESS for Assign events
-        if "from" not in event["args"]:
+        if "from" not in event["args"] and event["event"] == "Assign":
             all_events[i]["args"]["from"] = CRYPTOPUNKS_ADDRESS
 
     return sorted(all_events, key=itemgetter("blockNumber", "logIndex"))
 
 
-def determine_balances(events: list[EventData]) -> Dict[str, int]:
-    balances: Dict[str, int] = defaultdict(lambda: 0)
-    # bids: Dict[int, List[Tuple[int, str]]] = {}
+def determine_balances(events: List[EventData], eth_balance: bool = True) -> List[int]:
+    owner_to_punks: Dict[str, List[int]] = defaultdict(lambda: [])
+    owner_to_punks[CRYPTOPUNKS_ADDRESS] = [i for i in range(10000)]
 
-    balances[CRYPTOPUNKS_ADDRESS] = 10000
+    bids: Dict[int, List[Tuple[int, str]]] = defaultdict(lambda: [])
+    punk_prices = defaultdict(lambda: 0)
+
     for i, event in enumerate(events):
-        receiver = event["args"]["to"]
+        receiver = event["args"]["to"] if "to" in event["args"] else "0x123456"
         sender = event["args"]["from"]
         block_number = event["blockNumber"]
         punk_index = event["args"]["punkIndex"] if "punkIndex" in event["args"] else -1
         value = event["args"]["value"] if "value" in event["args"] else -1
         event_type = event["event"]
 
-        # if event_type != "Assign":
-        #     break
-
-        # if event_type == "PunkBidEntered":
-        #     bids[punk_index].append((value, sender))
-
         # we only need Transfer events to determine to address of PunkBought event
         if event_type == "Transfer":
             continue
+        # BidEntered and BidWithdrawn are simply used to keep track of bids
+        elif event_type == "PunkBidEntered":
+            bids[punk_index].append((value, sender))
+            continue
+        elif event_type == "PunkBidWithdrawn":
+            assert (value, sender) in bids[punk_index]
+            bids[punk_index].remove((value, sender))
+            continue
 
+        # must determine reciever and value manually
         if (
             receiver == "0x0000000000000000000000000000000000000000"
             and value == 0
             and event_type == "PunkBought"
         ):
+            # print_event(event)
             # since events are chronological, previous event will always be the Transfer
             # event corresponding to the PunkBought event
             transfer_event = events[i - 1]
@@ -92,11 +96,56 @@ def determine_balances(events: list[EventData]) -> Dict[str, int]:
             assert sender == transfer_event["args"]["from"]
             receiver = transfer_event["args"]["to"]
 
-        assert balances[sender] > 0
-        balances[sender] -= 1
-        balances[receiver] += 1
+            # will take the value to be the higest bid from the person who bought the punk
 
-    return balances
+            # print(bids[punk_index])
+            bids_from_receiver = filter(
+                lambda x: True if x[1] == receiver else False, bids[punk_index]
+            )
+            # value is highest bid from person who bought punk
+            value = sorted(bids_from_receiver, reverse=True)[0][0]
+
+        if event_type == "PunkBought":
+            # update latest sale price of punk
+            punk_prices[punk_index] = value
+
+        assert punk_index in owner_to_punks[sender]
+        owner_to_punks[sender].remove(punk_index)
+        owner_to_punks[receiver].append(punk_index)
+
+    # Manual changes
+    # Remove price of 9998, as this was not a legitimate purchase (https://twitter.com/larvalabs/status/1453903818308083720)
+    punk_prices[9998] = 0
+    # Drop all wrapped punks, which belong to this address: 0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6
+    del owner_to_punks["0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6"]
+
+    if eth_balance:
+        balances = {
+            k: sum(map(lambda x: punk_prices[x], v)) for k, v in owner_to_punks.items()
+        }
+    else:
+        balances = {k: len(v) for k, v in owner_to_punks.items()}
+    balances_list = sorted([v for v in balances.values() if v > 0])
+
+    return balances_list
+
+
+def print_event(event: EventData) -> None:
+    receiver = event["args"]["to"]
+    sender = event["args"]["from"]
+    block_number = event["blockNumber"]
+    punk_index = event["args"]["punkIndex"] if "punkIndex" in event["args"] else -1
+    value = event["args"]["value"] if "value" in event["args"] else -1
+    event_type = event["event"]
+
+    if event_type == "Assign":
+        print(f"punk {punk_index} claimed by {receiver[:8]}")
+    elif event_type == "PunkTransfer":
+        print(f"punk {punk_index} transferred from {sender[:8]} to {receiver[:8]}")
+    elif event_type == "PunkBought":
+        print(
+            f"punk {punk_index} bought from {sender[:8]} to {receiver[:8]} for {value} wei"
+        )
 
 
 if __name__ == "__main__":

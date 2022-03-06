@@ -17,23 +17,24 @@ def main():
         contract = w3.eth.contract(address=CRYPTOPUNKS_ADDRESS, abi=abi)
 
         to_fetch = [
-            # (contract.events.Transfer, "transfers", 250, linear),
-            # (contract.events.PunkTransfer, "punk_transfers", 250, linear),
-            (contract.events.PunkBidEntered, "bids", 600, linear),
-            # (contract.events.PunkBought, "buys", 250, linear),
+            (contract.events.Transfer, "transfers", 250, linear),
+            (contract.events.PunkTransfer, "punk_transfers", 250, linear),
+            (contract.events.PunkBidEntered, "bids_entered", 600, linear),
+            (contract.events.PunkBidWithdrawn, "bids_withdrawn", 600, linear),
+            (contract.events.PunkBought, "buys", 250, linear),
             # exponential transform ensures that intervals are narrower at start of contract life, when all assigns occur
-            # (contract.events.Assign, "assigns", 500, exponential),
+            (contract.events.Assign, "assigns", 500, exponential),
         ]
 
         for (event, name, n_intervals, transformation) in to_fetch:
-            get_and_save_punks_logs(event, n_intervals, name, transformation)
+            get_and_save_punks_logs(event, name, n_intervals, transformation)
 
 
 def get_and_save_punks_logs(
     event: Any,
-    n_intervals: int,
     name: str,
-    transform_function: Callable[[float], float] = linear,
+    n_intervals: int,
+    transformation: Callable[[float], float] = linear,
 ) -> None:
     print(name)
 
@@ -42,7 +43,7 @@ def get_and_save_punks_logs(
 
     # generate intervals of (possibly non-equal) size
     query_intervals = non_equal_intervals(
-        CONTRACT_CREATION_BLOCK, current_block, n_intervals, transform_function
+        CONTRACT_CREATION_BLOCK, current_block, n_intervals, transformation
     )
 
     # Fetch event data from smart contract via filters
