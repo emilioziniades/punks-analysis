@@ -8,11 +8,12 @@ from web3 import Web3
 from web3.types import EventData
 
 from config import CRYPTOPUNKS_ADDRESS
-from utils import gini
+from utils import gini, project_dir
 
 
-def main():
-    data_files = [
+def main() -> None:
+
+    all_data = [
         "../data/assigns.json",
         "../data/transfers.json",
         "../data/punk_transfers.json",
@@ -21,9 +22,48 @@ def main():
         "../data/bids_withdrawn.json",
     ]
 
+    # punk balances latest block
+    save_balances(all_data, "balances", False)
+
+    # punk balances after all punks claimed
+    save_balances(["../data/assigns.json"], "balances_after_assigns", False)
+
+    # punk balances over time (20 periods)
+    save_balances_intervals(all_data, "balances_punks_20", 20, False)
+
+    # ETH balances over time (20 periods)
+    save_balances_intervals(all_data, "balances_eth_20", 20, True)
+
+
+def save_balances_intervals(
+    data_files: List[str], outfile: str, n_intervals: int, eth_balances: bool = True
+) -> None:
+    to_dump = []
+
     events = merge_events(data_files)
-    print(gini(determine_balances(events, True)))
-    print(gini(determine_balances(events, False)))
+    start_block, end_block = events[0]["blockNumber"], events[-1]["blockNumber"]
+    length = end_block - start_block
+    interval_length = length / n_intervals
+
+    for i in range(n_intervals, -1, -1):
+        until_block = end_block - round(i * interval_length)
+        bal = determine_balances(events, eth_balances, until_block)
+        to_dump.append({"block": until_block, "balances": bal})
+
+    with open(f"{project_dir()}/data/{outfile}.json", "w") as f:
+        json.dump(to_dump, f)
+
+
+def save_balances(
+    data_files: List[str], outfile: str, eth_balances: bool = True
+) -> None:
+    events = merge_events(data_files)
+    balances = determine_balances(events, eth_balances)
+
+    to_dump = {"block": events[-1]["blockNumber"], "balances": balances}
+
+    with open(f"{project_dir()}/data/{outfile}.json", "w") as f:
+        json.dump(to_dump, f)
 
 
 def merge_events(event_files: list[str]) -> list[EventData]:
@@ -33,7 +73,6 @@ def merge_events(event_files: list[str]) -> list[EventData]:
     for filename in event_files:
         with open(filename, "r") as file:
             data = json.load(file)
-            # pprint(data[0])
             all_events += data
 
     # cleaning
@@ -54,7 +93,9 @@ def merge_events(event_files: list[str]) -> list[EventData]:
     return sorted(all_events, key=itemgetter("blockNumber", "logIndex"))
 
 
-def determine_balances(events: List[EventData], eth_balance: bool = True) -> List[int]:
+def determine_balances(
+    events: List[EventData], eth_balance: bool = True, until_block: int = None
+) -> List[int]:
     owner_to_punks: Dict[str, List[int]] = defaultdict(lambda: [])
     owner_to_punks[CRYPTOPUNKS_ADDRESS] = [i for i in range(10000)]
 
@@ -68,6 +109,9 @@ def determine_balances(events: List[EventData], eth_balance: bool = True) -> Lis
         punk_index = event["args"]["punkIndex"] if "punkIndex" in event["args"] else -1
         value = event["args"]["value"] if "value" in event["args"] else -1
         event_type = event["event"]
+
+        if until_block and block_number > until_block:
+            break
 
         # we only need Transfer events to determine to address of PunkBought event
         if event_type == "Transfer":
@@ -87,7 +131,6 @@ def determine_balances(events: List[EventData], eth_balance: bool = True) -> Lis
             and value == 0
             and event_type == "PunkBought"
         ):
-            # print_event(event)
             # since events are chronological, previous event will always be the Transfer
             # event corresponding to the PunkBought event
             transfer_event = events[i - 1]
@@ -98,7 +141,6 @@ def determine_balances(events: List[EventData], eth_balance: bool = True) -> Lis
 
             # will take the value to be the higest bid from the person who bought the punk
 
-            # print(bids[punk_index])
             bids_from_receiver = filter(
                 lambda x: True if x[1] == receiver else False, bids[punk_index]
             )
@@ -117,7 +159,10 @@ def determine_balances(events: List[EventData], eth_balance: bool = True) -> Lis
     # Remove price of 9998, as this was not a legitimate purchase (https://twitter.com/larvalabs/status/1453903818308083720)
     punk_prices[9998] = 0
     # Drop all wrapped punks, which belong to this address: 0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6
-    del owner_to_punks["0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6"]
+    try:
+        del owner_to_punks["0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6"]
+    except KeyError:
+        print("Tried to delete wrapped punks address, but address not found")
 
     if eth_balance:
         balances = {
@@ -128,24 +173,6 @@ def determine_balances(events: List[EventData], eth_balance: bool = True) -> Lis
     balances_list = sorted([v for v in balances.values() if v > 0])
 
     return balances_list
-
-
-def print_event(event: EventData) -> None:
-    receiver = event["args"]["to"]
-    sender = event["args"]["from"]
-    block_number = event["blockNumber"]
-    punk_index = event["args"]["punkIndex"] if "punkIndex" in event["args"] else -1
-    value = event["args"]["value"] if "value" in event["args"] else -1
-    event_type = event["event"]
-
-    if event_type == "Assign":
-        print(f"punk {punk_index} claimed by {receiver[:8]}")
-    elif event_type == "PunkTransfer":
-        print(f"punk {punk_index} transferred from {sender[:8]} to {receiver[:8]}")
-    elif event_type == "PunkBought":
-        print(
-            f"punk {punk_index} bought from {sender[:8]} to {receiver[:8]} for {value} wei"
-        )
 
 
 if __name__ == "__main__":
