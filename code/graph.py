@@ -7,7 +7,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from config import CONTRACT_CREATION_BLOCK
-from utils import project_dir
+from utils import project_dir, gini
 
 
 def main() -> None:
@@ -16,25 +16,52 @@ def main() -> None:
     # TODO: don't hard code the end block
     end = 14325807
 
-    equality = [50 for _ in range(100)]
-    plot_balance(equality, "black")
+    to_plot = [
+        # Figure 1: Distribution of punks after assign and now
+        (
+            "Figure 1: Distribution of punks after all claimed, vs now",
+            ["balances_after_assigns", "balances"],
+            "figure_1",
+            "Punks",
+        ),
+        # Figure 2: Distribution of punks over time
+        (
+            "Figure 2: Distribution of punks over time",
+            ["balances_punks_20"],
+            "figure_2",
+            "Punks",
+        ),
+        # Figure 3: Distribution of ETH value of punks over time
+        (
+            "Figure 3: Distribution of ETH value of punks over time",
+            ["balances_eth_20"],
+            "figure_3",
+            "ETH Value of Punks",
+        ),
+    ]
 
-    # Figure 1: Distribution of punks after assign and now
-    # plot_from_file("balances_after_assigns", start, end)
-    # plot_from_file("balances", start, end)
+    for (title, infiles, outfile, ylabel) in to_plot:
+        make_plot(infiles, outfile, start, end, title, ylabel)
 
-    # Figure 2: Distribution of punks over time
-    # plot_all_from_file("balances_punks_20", start, end)
 
-    # Figure 3: Distribution of ETH value of punks over time
-    plot_all_from_file("balances_eth_20", start, end)
-
+def make_plot(
+    infiles: List[str], outfile: str, start: int, end: int, title: str, ylab: str
+):
     plt.xlim(0, 1)
     plt.ylim(0, 1)
-    plt.show()
+    plt.xlabel("Cumulative Percent of Addresses")
+    plt.ylabel(f"Cumulative Percent of {ylab}")
+    plt.title(title)
+    plt.grid(True)
+    plot_equality()
+    for file in infiles:
+        plot_from_file(file, start, end)
+    plt.legend(loc="center right", bbox_to_anchor=(1.6, 0.5))
+    plt.savefig(f"../figures/{outfile}", bbox_inches="tight", dpi=200)
+    plt.cla()
 
 
-def plot_all_from_file(filename: str, start: int, end: int):
+def plot_from_file(filename: str, start: int, end: int):
     with open(f"{project_dir()}/data/{filename}.json") as f:
         data = json.load(f)
     for entry in data:
@@ -42,21 +69,12 @@ def plot_all_from_file(filename: str, start: int, end: int):
             continue
         progress = (entry["block"] - start) / (end - start)
         assert 0 <= progress <= 1
-        colour = colour_fade("blue", "red", progress)
-        plot_balance(entry["balances"], colour)
+        colour = colour_fade("#42378F", "#F53844", progress)
+        label = f"Block {entry['block']:,} (gini = {gini(entry['balances']):.3f})"
+        plot_balance(entry["balances"], colour, label)
 
 
-def plot_from_file(filename: str, start: int, end: int):
-    with open(f"{project_dir()}/data/{filename}.json") as f:
-        data = json.load(f)
-    assert data.get("block") and data.get("balances")
-    progress = (data["block"] - start) / (end - start)
-    colour = colour_fade("blue", "red", progress)
-    assert 0 <= progress <= 1
-    plot_balance(data["balances"], colour)
-
-
-def plot_balance(balances: List[int], colour: str) -> None:
+def plot_balance(balances: List[int], colour: str, label: str) -> None:
 
     df = pd.DataFrame({"balances": balances})
 
@@ -73,7 +91,11 @@ def plot_balance(balances: List[int], colour: str) -> None:
     x = df["cumulative_%_of_n"]
     y = df["cumulative_%_of_balance"]
 
-    plt.plot(x, y, color=colour)
+    plt.plot(x, y, color=colour, label=label)
+
+
+def plot_equality() -> None:
+    plot_balance([1 for _ in range(100)], "black", "Equality")
 
 
 # fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)

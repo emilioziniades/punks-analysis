@@ -60,7 +60,7 @@ def save_balances(
     events = merge_events(data_files)
     balances = determine_balances(events, eth_balances)
 
-    to_dump = {"block": events[-1]["blockNumber"], "balances": balances}
+    to_dump = [{"block": events[-1]["blockNumber"], "balances": balances}]
 
     with open(f"{project_dir()}/data/{outfile}.json", "w") as f:
         json.dump(to_dump, f)
