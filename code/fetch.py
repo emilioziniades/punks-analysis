@@ -66,7 +66,7 @@ def get_and_save_punks_logs(
 
     # convert AttributeDict into normal dict and save events to json
     dict_payload = [to_dict(i) for i in payload]
-    with open(f"{PROJECT_DIR}/data/{name}.json", "w") as f:
+    with open(f"{PROJECT_DIR}/data/event_{name}.json", "w") as f:
         json.dump(dict_payload, f)
         print(len(dict_payload))
 
