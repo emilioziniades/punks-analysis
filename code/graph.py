@@ -6,7 +6,7 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from config import CONTRACT_CREATION_BLOCK
+from config import CONTRACT_CREATION_BLOCK, PROJECT_DIR
 from utils import project_dir, gini
 
 
@@ -57,12 +57,12 @@ def make_plot(
     for file in infiles:
         plot_from_file(file, start, end)
     plt.legend(loc="center right", bbox_to_anchor=(1.6, 0.5))
-    plt.savefig(f"../figures/{outfile}", bbox_inches="tight", dpi=200)
+    plt.savefig(f"{PROJECT_DIR}/figures/{outfile}", bbox_inches="tight", dpi=200)
     plt.cla()
 
 
 def plot_from_file(filename: str, start: int, end: int):
-    with open(f"{project_dir()}/data/{filename}.json") as f:
+    with open(f"{PROJECT_DIR}/data/{filename}.json") as f:
         data = json.load(f)
     for entry in data:
         if len(entry["balances"]) <= 2:

@@ -7,8 +7,13 @@ from dotenv import load_dotenv
 load_dotenv()
 from web3.auto.infura import w3
 
-from utils import non_equal_intervals, to_dict, project_dir, exponential, linear
-from config import CRYPTOPUNKS_ADDRESS, CRYPTOPUNKS_ABI, CONTRACT_CREATION_BLOCK
+from utils import non_equal_intervals, to_dict, exponential, linear
+from config import (
+    CRYPTOPUNKS_ADDRESS,
+    CRYPTOPUNKS_ABI,
+    CONTRACT_CREATION_BLOCK,
+    PROJECT_DIR,
+)
 
 
 def main():
@@ -58,7 +63,7 @@ def get_and_save_punks_logs(
 
     # convert AttributeDict into normal dict and save events to json
     dict_payload = [to_dict(i) for i in payload]
-    with open(f"{project_dir()}/data/{name}.json", "w") as f:
+    with open(f"{PROJECT_DIR}/data/{name}.json", "w") as f:
         json.dump(dict_payload, f)
         print(len(dict_payload))
 

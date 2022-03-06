@@ -7,26 +7,26 @@ from operator import itemgetter
 from web3 import Web3
 from web3.types import EventData
 
-from config import CRYPTOPUNKS_ADDRESS
+from config import CRYPTOPUNKS_ADDRESS, PROJECT_DIR
 from utils import gini, project_dir
 
 
 def main() -> None:
 
     all_data = [
-        "../data/assigns.json",
-        "../data/transfers.json",
-        "../data/punk_transfers.json",
-        "../data/buys.json",
-        "../data/bids_entered.json",
-        "../data/bids_withdrawn.json",
+        "assigns",
+        "transfers",
+        "punk_transfers",
+        "buys",
+        "bids_entered",
+        "bids_withdrawn",
     ]
 
     # punk balances latest block
     save_balances(all_data, "balances", False)
 
     # punk balances after all punks claimed
-    save_balances(["../data/assigns.json"], "balances_after_assigns", False)
+    save_balances(["assigns"], "balances_after_assigns", False)
 
     # punk balances over time (20 periods)
     save_balances_intervals(all_data, "balances_punks_20", 20, False)
@@ -50,7 +50,7 @@ def save_balances_intervals(
         bal = determine_balances(events, eth_balances, until_block)
         to_dump.append({"block": until_block, "balances": bal})
 
-    with open(f"{project_dir()}/data/{outfile}.json", "w") as f:
+    with open(f"{PROJECT_DIR}/data/{outfile}.json", "w") as f:
         json.dump(to_dump, f)
 
 
@@ -62,7 +62,7 @@ def save_balances(
 
     to_dump = [{"block": events[-1]["blockNumber"], "balances": balances}]
 
-    with open(f"{project_dir()}/data/{outfile}.json", "w") as f:
+    with open(f"{PROJECT_DIR}/data/{outfile}.json", "w") as f:
         json.dump(to_dump, f)
 
 
@@ -71,7 +71,7 @@ def merge_events(event_files: list[str]) -> list[EventData]:
 
     # combine assigns, transfers and buys into single list of events
     for filename in event_files:
-        with open(filename, "r") as file:
+        with open(f"{PROJECT_DIR}/data/{filename}.json", "r") as file:
             data = json.load(file)
             all_events += data
 
