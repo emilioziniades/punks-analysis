@@ -1,4 +1,4 @@
-import json
+import json, os
 from typing import List
 
 import numpy as np
@@ -11,6 +11,9 @@ from utils import project_dir, gini
 
 
 def main() -> None:
+
+    if not os.path.exists(f"{PROJECT_DIR}/figures"):
+        os.mkdir(f"{PROJECT_DIR}/figures")
 
     start = CONTRACT_CREATION_BLOCK
     # TODO: don't hard code the end block

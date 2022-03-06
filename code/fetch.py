@@ -1,10 +1,10 @@
-import json
-
+import json, os
 from typing import Any, Callable
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
 from web3.auto.infura import w3
 
 from utils import non_equal_intervals, to_dict, exponential, linear
@@ -17,6 +17,9 @@ from config import (
 
 
 def main():
+
+    if not os.path.exists(f"{PROJECT_DIR}/data"):
+        os.mkdir(f"{PROJECT_DIR}/data")
     with open(CRYPTOPUNKS_ABI) as f:
         abi = json.load(f)
         contract = w3.eth.contract(address=CRYPTOPUNKS_ADDRESS, abi=abi)
