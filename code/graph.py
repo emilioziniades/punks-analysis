@@ -50,6 +50,7 @@ def main() -> None:
 def make_plot(
     infiles: List[str], outfile: str, start: int, end: int, title: str, ylab: str
 ):
+    print(f"Graphing {title}")
     plt.xlim(0, 1)
     plt.ylim(0, 1)
     plt.xlabel("Cumulative Percent of Addresses")

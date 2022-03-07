@@ -61,7 +61,7 @@ def get_and_save_punks_logs(
         s = hex(round(start))
         e = hex(round(end))
         print(
-            f"\t{count} / {n_intervals} {'.'*round(count/n_intervals * n_intervals)}",
+            f"\t{count} / {n_intervals} {'.'*round(count/n_intervals * 30)}",
             end="\r",
         )
         # print(count, start, end)

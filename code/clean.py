@@ -1,17 +1,16 @@
 import json
 from collections import defaultdict
-from pprint import pprint
 from typing import Dict, List, Tuple
 from operator import itemgetter
 
-from web3 import Web3
 from web3.types import EventData
 
 from config import CRYPTOPUNKS_ADDRESS, PROJECT_DIR
-from utils import gini, project_dir
 
 
 def main() -> None:
+
+    print("cleaning and parsing data...")
 
     all_data = [
         "assigns",
