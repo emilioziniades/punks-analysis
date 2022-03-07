@@ -28,11 +28,6 @@ def non_equal_intervals(
         except IndexError:
             continue
 
-    print("\n")
-    print(intervals)
-    print("\n")
-    print([end - start for (start, end) in intervals])
-    print("\n")
     return intervals
 
 

@@ -25,11 +25,11 @@ def main():
         contract = w3.eth.contract(address=CRYPTOPUNKS_ADDRESS, abi=abi)
 
         to_fetch = [
-            (contract.events.Transfer, "transfers", 250, linear),
-            (contract.events.PunkTransfer, "punk_transfers", 250, linear),
+            (contract.events.Transfer, "transfers", 300, linear),
+            (contract.events.PunkTransfer, "punk_transfers", 300, linear),
             (contract.events.PunkBidEntered, "bids_entered", 600, linear),
             (contract.events.PunkBidWithdrawn, "bids_withdrawn", 600, linear),
-            (contract.events.PunkBought, "buys", 250, linear),
+            (contract.events.PunkBought, "buys", 300, linear),
             # exponential transform ensures that intervals are narrower at start of contract life, when all assigns occur
             (contract.events.Assign, "assigns", 500, exponential),
         ]
@@ -44,7 +44,7 @@ def get_and_save_punks_logs(
     n_intervals: int,
     transformation: Callable[[float], float] = linear,
 ) -> None:
-    print(name)
+    print(f"fetching {name} in {n_intervals} intervals...")
 
     # RPC call: eth_blockNumber
     current_block = w3.eth.blockNumber
@@ -60,7 +60,11 @@ def get_and_save_punks_logs(
     for count, [start, end] in enumerate(query_intervals):
         s = hex(round(start))
         e = hex(round(end))
-        print(count, start, end)
+        print(
+            f"\t{count} / {n_intervals} {'.'*round(count/n_intervals * n_intervals)}",
+            end="\r",
+        )
+        # print(count, start, end)
         entries = event.createFilter(fromBlock=s, toBlock=e).get_all_entries()
         payload += entries
 
