@@ -2,10 +2,17 @@ import json
 from collections import defaultdict
 from typing import Dict, List, Tuple
 from operator import itemgetter
+from datetime import datetime
 
+from dotenv import load_dotenv
+
+load_dotenv()  # must occur before web3.auto.infura is imported
+
+from web3.auto.infura import w3
 from web3.types import EventData
 
 from config import CRYPTOPUNKS_ADDRESS, PROJECT_DIR
+from utils import gini
 
 
 def main() -> None:
@@ -23,7 +30,6 @@ def main() -> None:
 
     # punk balances latest block
     save_balances(all_data, "balances", False)
-    return
 
     # punk balances after all punks claimed
     save_balances(["assigns"], "balances_after_assigns", False)
@@ -46,9 +52,17 @@ def save_balances_intervals(
     interval_length = length / n_intervals
 
     for i in range(n_intervals, -1, -1):
-        until_block = end_block - round(i * interval_length)
-        bal = determine_balances(events, eth_balances, until_block)
-        to_dump.append({"block": until_block, "balances": bal})
+        block = end_block - round(i * interval_length)
+        timestamp = w3.eth.getBlock(block).timestamp
+        balances = determine_balances(events, eth_balances, block)
+        to_dump.append(
+            {
+                "block": block,
+                "balances": balances,
+                "gini": gini(balances),
+                "date": datetime.fromtimestamp(timestamp).strftime("%d/%m/%Y"),
+            }
+        )
 
     with open(f"{PROJECT_DIR}/data/{outfile}.json", "w") as f:
         json.dump(to_dump, f)
@@ -59,8 +73,16 @@ def save_balances(
 ) -> None:
     events = merge_events(data_files)
     balances = determine_balances(events, eth_balances)
-
-    to_dump = [{"block": events[-1]["blockNumber"], "balances": balances}]
+    block = events[-1]["blockNumber"]
+    timestamp = w3.eth.getBlock(block).timestamp
+    to_dump = [
+        {
+            "block": block,
+            "balances": balances,
+            "gini": gini(balances),
+            "date": datetime.fromtimestamp(timestamp).strftime("%d/%m/%Y"),
+        }
+    ]
 
     with open(f"{PROJECT_DIR}/data/{outfile}.json", "w") as f:
         json.dump(to_dump, f)
@@ -140,7 +162,6 @@ def determine_balances(
             receiver = transfer_event["args"]["to"]
 
             # will take the value to be the higest bid from the person who bought the punk
-
             bids_from_receiver = filter(
                 lambda x: True if x[1] == receiver else False, bids[punk_index]
             )
@@ -158,9 +179,11 @@ def determine_balances(
     # Manual changes
     # Remove price of 9998, as this was not a legitimate purchase (https://twitter.com/larvalabs/status/1453903818308083720)
     punk_prices[9998] = 0
-    # Drop all wrapped punks, which belong to this address: 0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6
+    # Drop all wrapped punks, Punks OTC, and ???
     try:
         del owner_to_punks["0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6"]
+        del owner_to_punks["0x6639c089adfba8bb9968da643c6be208a70d6daa"]
+        del owner_to_punks["0x2cc12318de28edc9c753f7cb22100890af630c2d"]
     except KeyError:
         pass
 
@@ -170,7 +193,6 @@ def determine_balances(
         }
     else:
         balances = {k: len(v) for k, v in owner_to_punks.items()}
-        breakpoint()
     balances_list = sorted([v for v in balances.values() if v > 0])
 
     return balances_list

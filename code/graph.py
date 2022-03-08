@@ -7,7 +7,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from config import CONTRACT_CREATION_BLOCK, PROJECT_DIR, RESEARCH_END_BLOCK
-from utils import gini
 
 
 def main() -> None:
@@ -106,6 +105,7 @@ def make_plot(
         for entry in data_entries:
             if len(entry["balances"]) <= 2:
                 continue
+
             if progress_colour:
                 progress = (entry["block"] - start) / (end - start)
                 assert 0 <= progress <= 1
@@ -114,8 +114,7 @@ def make_plot(
                 colour = "black"
 
             if custom_label == "":
-                # label = f"Block {entry['block']:,} (gini = {gini(entry['balances']):.3f})"
-                label = f"Block {entry['block']:,} "
+                label = f"{entry['date']} (n = {len(entry['balances']) -1}, gini = {entry['gini']:.3f})"
             else:
                 label = custom_label
 
@@ -124,14 +123,12 @@ def make_plot(
             if dots:
                 plt.scatter(x, y, color=colour)
 
-    plt.legend(loc="center right", bbox_to_anchor=(1.6, 0.5))
+    plt.legend(loc="center right", bbox_to_anchor=(1.7, 0.5))
     plt.savefig(f"{PROJECT_DIR}/figures/{outfile}", bbox_inches="tight", dpi=200)
     plt.cla()
 
 
-def calculate_cumulatives(
-    balances: List[int],
-) -> Tuple[List, List]:
+def calculate_cumulatives(balances: List[int]) -> Tuple[List, List]:
 
     df = pd.DataFrame({"balances": balances})
 

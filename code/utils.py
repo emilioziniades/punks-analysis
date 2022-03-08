@@ -58,6 +58,8 @@ def project_dir() -> str:
 
 def gini(balances: List[int]) -> float:
     n = len(balances)
+    if n == 0:
+        return 0
     mean = sum(balances) / n
     differences = sum([abs(i - j) for i in balances for j in balances])
     mean_differences = differences / n**2
