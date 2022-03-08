@@ -6,18 +6,16 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from config import CONTRACT_CREATION_BLOCK, PROJECT_DIR
-from utils import project_dir, gini
+from config import CONTRACT_CREATION_BLOCK, PROJECT_DIR, RESEARCH_END_BLOCK
+from utils import gini
 
 
 def main() -> None:
-
     if not os.path.exists(f"{PROJECT_DIR}/figures"):
         os.mkdir(f"{PROJECT_DIR}/figures")
 
     start = CONTRACT_CREATION_BLOCK
-    # TODO: don't hard code the end block
-    end = 14325807
+    end = RESEARCH_END_BLOCK
 
     to_plot = [
         # Figure 1: Distribution of punks after assign and now
@@ -79,7 +77,6 @@ def plot_from_file(filename: str, start: int, end: int):
 
 
 def plot_balance(balances: List[int], colour: str, label: str) -> None:
-
     df = pd.DataFrame({"balances": balances})
 
     total_balance = df["balances"].sum()

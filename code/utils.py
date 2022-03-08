@@ -72,3 +72,11 @@ def exponential(x: float) -> float:
 
 def linear(x: float) -> float:
     return x
+
+
+def print_progress(n: int, total: int) -> None:
+    WIDTH = 50
+    print(
+        f"\t{n} / {total} [{'.'*round(n/total*WIDTH)}{' '*round((total-n)/total*WIDTH)}]",
+        end="\r",
+    )

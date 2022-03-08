@@ -7,12 +7,14 @@ load_dotenv()
 
 from web3.auto.infura import w3
 
-from utils import non_equal_intervals, to_dict, exponential, linear
+from utils import non_equal_intervals, to_dict, exponential, linear, print_progress
 from config import (
     CRYPTOPUNKS_ADDRESS,
     CRYPTOPUNKS_ABI,
     CONTRACT_CREATION_BLOCK,
+    RESEARCH_END_BLOCK,
     PROJECT_DIR,
+    NUMBER_OF_INTERVALS,
 )
 
 
@@ -25,13 +27,28 @@ def main():
         contract = w3.eth.contract(address=CRYPTOPUNKS_ADDRESS, abi=abi)
 
         to_fetch = [
-            (contract.events.Transfer, "transfers", 300, linear),
-            (contract.events.PunkTransfer, "punk_transfers", 300, linear),
-            (contract.events.PunkBidEntered, "bids_entered", 600, linear),
-            (contract.events.PunkBidWithdrawn, "bids_withdrawn", 600, linear),
-            (contract.events.PunkBought, "buys", 300, linear),
+            (contract.events.Transfer, "transfers", NUMBER_OF_INTERVALS, linear),
+            (
+                contract.events.PunkTransfer,
+                "punk_transfers",
+                NUMBER_OF_INTERVALS,
+                linear,
+            ),
+            (
+                contract.events.PunkBidEntered,
+                "bids_entered",
+                NUMBER_OF_INTERVALS,
+                linear,
+            ),
+            (
+                contract.events.PunkBidWithdrawn,
+                "bids_withdrawn",
+                NUMBER_OF_INTERVALS,
+                linear,
+            ),
+            (contract.events.PunkBought, "buys", NUMBER_OF_INTERVALS, linear),
             # exponential transform ensures that intervals are narrower at start of contract life, when all assigns occur
-            (contract.events.Assign, "assigns", 500, exponential),
+            (contract.events.Assign, "assigns", NUMBER_OF_INTERVALS, exponential),
         ]
 
         for (event, name, n_intervals, transformation) in to_fetch:
@@ -46,12 +63,9 @@ def get_and_save_punks_logs(
 ) -> None:
     print(f"fetching {name} in {n_intervals} intervals...")
 
-    # RPC call: eth_blockNumber
-    current_block = w3.eth.blockNumber
-
     # generate intervals of (possibly non-equal) size
     query_intervals = non_equal_intervals(
-        CONTRACT_CREATION_BLOCK, current_block, n_intervals, transformation
+        CONTRACT_CREATION_BLOCK, RESEARCH_END_BLOCK, n_intervals, transformation
     )
 
     # Fetch event data from smart contract via filters
@@ -60,11 +74,7 @@ def get_and_save_punks_logs(
     for count, [start, end] in enumerate(query_intervals):
         s = hex(round(start))
         e = hex(round(end))
-        print(
-            f"\t{count} / {n_intervals} {'.'*round(count/n_intervals * 30)}",
-            end="\r",
-        )
-        # print(count, start, end)
+        print_progress(count + 1, n_intervals)
         entries = event.createFilter(fromBlock=s, toBlock=e).get_all_entries()
         payload += entries
 

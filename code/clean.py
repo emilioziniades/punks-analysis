@@ -23,6 +23,7 @@ def main() -> None:
 
     # punk balances latest block
     save_balances(all_data, "balances", False)
+    return
 
     # punk balances after all punks claimed
     save_balances(["assigns"], "balances_after_assigns", False)
@@ -70,7 +71,7 @@ def merge_events(event_files: list[str]) -> list[EventData]:
 
     # combine assigns, transfers and buys into single list of events
     for filename in event_files:
-        with open(f"{PROJECT_DIR}/data/{filename}.json", "r") as file:
+        with open(f"{PROJECT_DIR}/data/event_{filename}.json", "r") as file:
             data = json.load(file)
             all_events += data
 
@@ -161,7 +162,7 @@ def determine_balances(
     try:
         del owner_to_punks["0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6"]
     except KeyError:
-        print("Tried to delete wrapped punks address, but address not found")
+        pass
 
     if eth_balance:
         balances = {
@@ -169,6 +170,7 @@ def determine_balances(
         }
     else:
         balances = {k: len(v) for k, v in owner_to_punks.items()}
+        breakpoint()
     balances_list = sorted([v for v in balances.values() if v > 0])
 
     return balances_list
