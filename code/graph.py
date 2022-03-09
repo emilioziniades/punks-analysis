@@ -1,12 +1,11 @@
 import json, os
 from typing import List, Tuple
 
-import numpy as np
 import pandas as pd
-import matplotlib as mpl
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-from config import CONTRACT_CREATION_BLOCK, PROJECT_DIR, RESEARCH_END_BLOCK
+from config import PROJECT_DIR
 
 
 def main() -> None:
@@ -15,9 +14,6 @@ def main() -> None:
 
     save_examples()
 
-    start = CONTRACT_CREATION_BLOCK
-    end = RESEARCH_END_BLOCK
-
     to_plot = [
         # Example 1: Equality
         (
@@ -25,54 +21,58 @@ def main() -> None:
             ["example_equality"],
             "example_1",
             "Punks",
-            [True, False, False, "Equality"],
+            [True, False, "Equality", ["black"]],
         ),
-        # Example 2 :  inequality with five people
+        # # Example 2 :  inequality with five people
         (
             "Example 2: Inequality",
             ["example_inequality"],
             "example_2",
             "Punks",
-            [True, True, False, "Inequality"],
+            [True, True, "Inequality", ["black"]],
         ),
-        # Figure 1: Distribution of punks after assign and now
+        # # Figure 1: Distribution of punks after assign and now
         (
-            "Figure 1: Distribution of punks after all claimed, vs now",
+            "Figure 1: Distribution of Punks after all claimed, vs now",
             ["balances_after_assigns", "balances"],
             "figure_1",
             "Punks",
-            [False, True, True, ""],
+            [False, True, "", ["#D47162", "#7C376D"]],
         ),
         # Figure 2: Distribution of punks over time
         (
-            "Figure 2: Distribution of punks over time",
+            "Figure 2: Distribution of Punks over time",
             ["balances_punks_20"],
             "figure_2",
             "Punks",
-            [False, True, True, ""],
+            [False, True, "", None],
         ),
-        # Figure 3: Distribution of ETH value of punks over time
+        # # Figure 3: Distribution of ETH value of punks over time
         (
-            "Figure 3: Distribution of ETH value of punks over time",
+            "Figure 3: Distribution of ETH value of Punks over time",
             ["balances_eth_20"],
             "figure_3",
             "ETH Value of Punks",
-            [False, True, True, ""],
+            [False, True, "", None],
         ),
     ]
 
-    for (title, infiles, outfile, ylabel, options) in to_plot:
-        dots, equality, progress_colour, custom_label = options
+    for (
+        title,
+        infiles,
+        outfile,
+        ylabel,
+        options,
+    ) in to_plot:
+        dots, equality, custom_label, colours = options
         make_plot(
             infiles,
             outfile,
-            start,
-            end,
             title,
             ylabel,
             dots,
             equality,
-            progress_colour,
+            colours,
             custom_label,
         )
 
@@ -80,13 +80,11 @@ def main() -> None:
 def make_plot(
     infiles: List[str],
     outfile: str,
-    start: int,
-    end: int,
     title: str,
     ylab: str,
     dots: bool = False,
     equality: bool = True,
-    progress_colour: bool = True,
+    custom_colours: List[Tuple[float, float, float]] = None,
     custom_label: str = "",
 ):
     print(f"Graphing {title}")
@@ -99,37 +97,45 @@ def make_plot(
     if equality:
         plot_equality()
 
+    # gather all plots to graph
+    plots = []
     for file in infiles:
         with open(f"{PROJECT_DIR}/data/{file}.json") as f:
             data_entries = json.load(f)
         for entry in data_entries:
-            if len(entry["balances"]) <= 2:
-                continue
+            plots.append(entry)
 
-            if progress_colour:
-                progress = (entry["block"] - start) / (end - start)
-                assert 0 <= progress <= 1
-                colour = colour_fade("#42378F", "#F53844", progress)
-            else:
-                colour = "black"
+    # determine colours to use
+    if custom_colours:
+        assert len(custom_colours) == len(plots)
+        colours = custom_colours
+    else:
+        colours = sns.color_palette("flare_r", n_colors=len(plots))
 
-            if custom_label == "":
-                label = f"{entry['date']} (n = {len(entry['balances']) -1}, gini = {entry['gini']:.3f})"
-            else:
-                label = custom_label
+    # plot each entry
+    for i, plot in enumerate(plots):
+        if len(plot["balances"]) <= 2:
+            continue
 
-            x, y = calculate_cumulatives(entry["balances"])
-            plt.plot(x, y, color=colour, label=label)
-            if dots:
-                plt.scatter(x, y, color=colour)
+        if custom_label == "":
+            label = f"{plot['date']} (n = {len(plot['balances']) -1}, gini = {plot['gini']:.3f})"
+            label_box_x_width = 1.7
+        else:
+            label = custom_label
+            label_box_x_width = 1.3
 
-    plt.legend(loc="center right", bbox_to_anchor=(1.7, 0.5))
+        x, y = calculate_cumulatives(plot["balances"])
+
+        plt.plot(x, y, c=colours[i], label=label, alpha=0.8)
+        if dots:
+            plt.scatter(x, y, c=colours[i])
+
+    plt.legend(loc="center right", bbox_to_anchor=(label_box_x_width, 0.5))
     plt.savefig(f"{PROJECT_DIR}/figures/{outfile}", bbox_inches="tight", dpi=200)
-    plt.cla()
+    plt.clf()
 
 
 def calculate_cumulatives(balances: List[int]) -> Tuple[List, List]:
-
     df = pd.DataFrame({"balances": balances})
 
     total_balance = df["balances"].sum()
@@ -151,15 +157,7 @@ def calculate_cumulatives(balances: List[int]) -> Tuple[List, List]:
 
 def plot_equality() -> None:
     x, y = calculate_cumulatives([1 for _ in range(100)])
-    plt.plot(x, y, color="black", linestyle="dashed", label="Equality")
-
-
-# fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
-def colour_fade(c1: str, c2: str, mix: float) -> str:
-    assert 0 <= mix <= 1
-    colour_1 = np.array(mpl.colors.to_rgb(c1))
-    colour_2 = np.array(mpl.colors.to_rgb(c2))
-    return mpl.colors.to_hex((1 - mix) * colour_1 + mix * colour_2)
+    plt.plot(x, y, color="black", linestyle="--", label="Equality")
 
 
 def save_examples() -> None:
@@ -169,8 +167,8 @@ def save_examples() -> None:
     ]
 
     for balance, filename in examples:
+        eg_data = [{"block": 0, "balances": balance}]
         with open(f"{PROJECT_DIR}/data/{filename}.json", "w") as f:
-            eg_data = [{"block": 0, "balances": balance}]
             json.dump(eg_data, f)
 
 
