@@ -2,6 +2,6 @@
 code/.env
 __pycache__
 *.pyc
-data/
-figures/
-tags
+data/balances*
+data/example_*
+tags*
