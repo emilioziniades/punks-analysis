@@ -37,7 +37,7 @@ def main() -> None:
             ["balances_after_assigns", "balances"],
             "figure_1",
             "Punks",
-            [False, True, "", ["#D47162", "#7C376D"]],
+            [False, True, "", ["#7C376D", "#D47162"]],
         ),
         # Figure 2: Distribution of punks over time
         (

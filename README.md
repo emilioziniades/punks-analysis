@@ -48,6 +48,8 @@ emilio@MBP:~/punks-analysis$ rm -rf data && rm -rf figures
 
 Now you, you can run `main.py` and the data will be fetched, cleaned, parsed and graphed.
 
+**NOTE:** This project requires Python version 3.9.10.
+
 ```console
 emilio@MBP:~/punks-analysis$ python3 ./code/main.py
 ```
