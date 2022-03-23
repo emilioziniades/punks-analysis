@@ -3,6 +3,7 @@ from typing import List, Tuple
 
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.colors
 import seaborn as sns
 
 from config import PROJECT_DIR
@@ -13,6 +14,7 @@ def main() -> None:
         os.mkdir(f"{PROJECT_DIR}/figures")
 
     save_examples()
+    save_interactive_data()
 
     to_plot = [
         # Example 1: Equality
@@ -158,6 +160,26 @@ def calculate_cumulatives(balances: List[int]) -> Tuple[List, List]:
 def plot_equality() -> None:
     x, y = calculate_cumulatives([1 for _ in range(100)])
     plt.plot(x, y, color="black", linestyle="--", label="Equality")
+
+
+# saves ETH balances of addresses as cumulative data to graph with chart.js
+def save_interactive_data():
+    with open(f"{PROJECT_DIR}/data/balances_eth_20.json", "r") as f:
+        data = json.load(f)
+        colours = sns.color_palette("flare_r", n_colors=len(data))
+        for index, item in enumerate(data):
+            balances = item["balances"]
+            if len(balances) < 1:
+                continue
+
+            x, y = calculate_cumulatives(balances)
+            item["x"] = x
+            item["y"] = y
+            item["colour"] = matplotlib.colors.to_hex(colours[index])
+
+    with open(f"{PROJECT_DIR}/data/balances_interactive.json", "w") as f:
+
+        json.dump([i for i in data if len(i["balances"]) > 0], f)
 
 
 def save_examples() -> None:
